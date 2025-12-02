@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>My Journey Timeline</title>
+  <style>
+    :root{
+      --bg1:#071025; --bg2:#24102a; --accent:#ff6b6b; --accent2:#7afcff;
+      --glass: rgba(255,255,255,0.04);
+      --radius:18px;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;margin:0;background:var(--bg1);color:#e6eef8;transition:background 1200ms ease}
+    .wrap{max-width:980px;margin:28px auto;padding:18px}
+    header{display:flex;align-items:center;gap:16px}
+    header h1{margin:0;font-size:20px}
+
+    /* Timeline container */
+    .timeline{position:relative;padding:40px 16px}
+    svg.path{position:absolute;left:50%;transform:translateX(-50%);top:0;height:100%;width:6px;pointer-events:none}
+
+    .events{display:flex;flex-direction:column-reverse;gap:28px}
+
+    .event{
+      display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:center;position:relative;overflow:visible
+    }
+    .event:nth-child(even){grid-template-columns:420px 1fr}
+
+    .node{position:absolute;left:50%;transform:translateX(-50%);width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 6px 18px rgba(0,0,0,0.6);z-index:5}
+
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:14px;box-shadow:0 6px 26px rgba(10,14,24,0.6);backdrop-filter: blur(6px)}
+
+    .meta{font-size:13px;color:#bcd3ec;margin-bottom:8px}
+    .title{font-size:16px;margin:0 0 8px 0}
+    .caption{font-size:14px;color:#c7d7ee}
+
+    /* Photo block - now supports slider built from canvases */
+    .photo{
+      width:420px;height:260px;border-radius:14px;overflow:hidden;position:relative;background:#091220;display:flex;align-items:center;justify-content:center;
+      -webkit-user-drag:none;user-select:none;touch-action:manipulation;
+    }
+    .slider{width:100%;height:100%;position:relative}
+    .slide{position:absolute;inset:0;transition:opacity .6s ease;opacity:0;display:flex;align-items:center;justify-content:center}
+    .slide.active{opacity:1}
+    .slide canvas{width:100%;height:100%;object-fit:cover;display:block;border-radius:14px}
+    .photo .blocker{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.0), rgba(0,0,0,0.12));pointer-events:none}
+    .photo .captionBox{position:absolute;left:10px;bottom:10px;padding:8px 12px;background:linear-gradient(90deg, rgba(0,0,0,0.45), rgba(255,255,255,0.02));border-radius:12px;font-size:13px}
+
+    /* slider indicators */
+    .dots{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:8px;z-index:5}
+    .dots .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.25);cursor:pointer}
+    .dots .dot.active{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+
+    /* small group avatar strip */
+    .group-strip{display:flex;gap:8px;margin-top:8px}
+    .group-avatar{width:38px;height:38px;border-radius:10px;background-size:cover;background-position:center;border:2px solid rgba(255,255,255,0.06)}
+
+    /* animations */
+    .card{transform:translateY(18px);opacity:0;transition:all 700ms cubic-bezier(.2,.9,.2,1)}
+    .card.visible{transform:none;opacity:1}
+    .event{opacity:0;transform:translateY(40px);transition:all .8s cubic-bezier(.2,.9,.2,1)}
+    .event.visible{opacity:1;transform:none}
+
+    /* background animation via class changes */
+    .bg-1{background:radial-gradient(circle at 10% 10%, #071025 0%, #0f1724 40%)}
+    .bg-2{background:radial-gradient(circle at 90% 20%, #240716 0%, #2a0f35 40%)}
+    .bg-3{background:radial-gradient(circle at 20% 80%, #0b2b1a 0%, #12384b 40%)}
+    .bg-4{background:radial-gradient(circle at 40% 30%, #35220a 0%, #1b2b3a 40%)}
+
+    /* mobile layout */
+    @media (max-width:880px){
+      .wrap{padding:12px}
+      .event{grid-template-columns:1fr;}
+      .event:nth-child(even){grid-template-columns:1fr}
+      .photo{width:100%;height:220px}
+    }
+
+    /* top fixed instructions */
+    .hint{font-size:13px;color:#bcd3ec;margin:8px 0}
+
+    footer{font-size:12px;color:#93b0d8;text-align:center;margin-top:28px}
+
+    /* canvas protection */
+    canvas {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      user-select: none;
+      -webkit-user-drag: none;
+      image-rendering: auto;
+      pointer-events: auto; /* keep pointer events for slider hover */
+      touch-action: none;
+    }
+  </style>
+</head>
+<body oncontextmenu="return false;" ondragstart="return false;">
+  <div class="wrap">
+    <header>
+      <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700">JP</div>
+      <div>
+        <h1>My Journey Timeline</h1>
+        <div class="hint">Latest events at top — click any photo to open (images are protected from right-click & drag). Edit the events array inside this file to update.</div>
+      </div>
+    </header>
+
+    <div class="timeline" id="timeline">
+      <svg class="path" viewBox="0 0 6 1000" preserveAspectRatio="none">
+        <defs><linearGradient id="g1" x1="0" x2="1"><stop offset="0%" stop-color="#ff6b6b"/><stop offset="100%" stop-color="#7afcff"/></linearGradient></defs>
+        <rect x="0" y="0" width="6" height="100%" fill="url(#g1)" rx="3"/>
+      </svg>
+
+      <div class="events" id="events"></div>
+    </div>
+
+    <footer>Made with ✨ — Update the events array in this file to add new days. Hosted as a single static page.</footer>
+  </div>
+
+  <script>
+    // ---------- CONFIG ----------
+    const slideDuration = 3000; // ms per slide (3 seconds)
+    const watermarkText = "© Raviraj Journey"; // default watermark text
+    const watermarkStyle = "C"; // A: diagonal, B: bottom-right, C: both (we'll apply both)
+
+    // ---------- SAMPLE DATA ----------
+    // Replace photo URLs with your GitHub raw URLs or relative paths (e.g. './images/1.jpg')
+    const events = [
+      {
+        date: '2025-12-10',
+        title: 'City Marathon — Personal Best',
+        caption: 'Completed my first half marathon with the gang. Weather was perfect!',
+        photos: [
+          'https://raw.githubusercontent.com/yourUser/yourRepo/main/images/sample1.jpg',
+          'https://raw.githubusercontent.com/yourUser/yourRepo/main/images/sample2.jpg'
+        ],
+        group: ['https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&auto=format&fit=crop&q=60'],
+        location: 'Pune'
+      },
+      {
+        date: '2025-12-05',
+        title: 'Weekend Trek — Lohagad Fort',
+        caption: 'Amazing day with friends, clouds everywhere and full energy trek.',
+        photos: [
+          'https://raw.githubusercontent.com/yourUser/yourRepo/main/images/sample3.jpg',
+          'https://raw.githubusercontent.com/yourUser/yourRepo/main/images/sample4.jpg'
+        ],
+        group: [
+          'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=300&auto=format&fit=crop&q=60',
+          'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=300&auto=format&fit=crop&q=60'
+        ],
+        location: 'Lohagad, Maharashtra'
+      },
+      {
+        date: '2025-12-03',
+        title: 'College Friends Reunion',
+        caption: 'Unexpected meetup with old friends after months, laughed a lot and shared memories.',
+        photos: [
+          'https://raw.githubusercontent.com/yourUser/yourRepo/main/images/sample5.jpg',
+          'https://raw.githubusercontent.com/yourUser/yourRepo/main/images/sample6.jpg',
+          'https://raw.githubusercontent.com/yourUser/yourRepo/main/images/sample7.jpg'
+        ],
+        group: [
+          'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=300&auto=format&fit=crop&q=60',
+          'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=300&auto=format&fit=crop&q=60'
+        ],
+        location: 'Pune'
+      },
+      {
+        date: '2023-03-09',
+        title: 'Kashid Beach',
+        caption: 'Fun group outing on baech',
+        photos: [
+          './images/IMG20240309114358.jpg', './images/IMG20240309120327.jpg', './images/IMG20240309122019.jpg', './images/IMG20240309182623.jpg', './images/Snapchat-1420790645.jpg'
+        ],
+        group: [
+          'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&auto=format&fit=crop&q=60',
+          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&auto=format&fit=crop&q=60'
+        ],
+        location: 'Talegaon, Pune'
+      }
+    ];
+
+    // ---------- UTIL: draw watermarked & scaled image onto a canvas ----------
+    /**
+     * Renders an image (from url) into the provided canvas element with watermark.
+     * Fits image to canvas using cover logic (like background-size: cover).
+     */
+    function renderImageToCanvas(canvas, imageUrl, watermarkText, style) {
+      return new Promise((resolve, reject) => {
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          // Calculate cover scaling
+          const cw = canvas.width;
+          const ch = canvas.height;
+          const iw = img.naturalWidth;
+          const ih = img.naturalHeight;
+          const scale = Math.max(cw / iw, ch / ih);
+          const sw = iw * scale;
+          const sh = ih * scale;
+          const sx = (cw - sw) / 2;
+          const sy = (ch - sh) / 2;
+
+          // clear & draw
+          ctx.clearRect(0, 0, cw, ch);
+          ctx.drawImage(img, sx, sy, sw, sh);
+
+          // watermark: large diagonal
+          if (style === "A" || style === "C") {
+            const fontSize = Math.floor(Math.min(cw, ch) / 8);
+            ctx.save();
+            ctx.translate(cw / 2, ch / 2);
+            ctx.rotate(-Math.PI / 8);
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.fillStyle = "rgba(255,255,255,0.18)";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(watermarkText, 0, 0);
+            ctx.restore();
+          }
+
+          // watermark: small bottom-right
+          if (style === "B" || style === "C") {
+            const smallSize = Math.floor(Math.min(cw, ch) / 20);
+            ctx.save();
+            ctx.font = `${smallSize}px sans-serif`;
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            ctx.textAlign = "right";
+            ctx.textBaseline = "bottom";
+            const padding = Math.floor(Math.min(cw, ch) / 30);
+            ctx.fillText(watermarkText, cw - padding, ch - padding);
+            ctx.restore();
+          }
+
+          resolve();
+        };
+        img.onerror = (e) => {
+          // draw a fallback empty background
+          const cw = canvas.width;
+          const ch = canvas.height;
+          ctx.fillStyle = "#14202b";
+          ctx.fillRect(0, 0, cw, ch);
+          ctx.fillStyle = "#abcdef";
+          ctx.font = "16px sans-serif";
+          ctx.fillText("Image failed to load", 10, 30);
+          resolve();
+        };
+        img.src = imageUrl;
+      });
+    }
+
+    // ---------- render canvas inside a slide element ----------
+    async function renderCanvasIntoSlide(slideElem, imageUrl, watermarkText, style) {
+      // remove previous canvas if any
+      slideElem.innerHTML = "";
+      const canvas = document.createElement("canvas");
+
+      // set size based on slide computed size to be crisp on high DPI
+      const rect = slideElem.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(200, Math.round(rect.width));
+      const height = Math.max(150, Math.round(rect.height));
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+      // scale context for DPR
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // render
+      await renderImageToCanvas(canvas, imageUrl, watermarkText, style);
+
+      // security: prevent contextmenu on canvas
+      canvas.oncontextmenu = (e) => { e.preventDefault(); };
+      canvas.draggable = false;
+
+      slideElem.appendChild(canvas);
+    }
+
+    // ---------- SLIDER logic (uses canvas slides) ----------
+    function initSlider(sliderElem, photoList) {
+      const slides = sliderElem.querySelectorAll('.slide');
+      const dots = sliderElem.querySelectorAll('.dot');
+      let current = 0;
+      let timer = null;
+
+      function goTo(n) {
+        slides[current].classList.remove('active');
+        if (dots[current]) dots[current].classList.remove('active');
+        current = (n + slides.length) % slides.length;
+        slides[current].classList.add('active');
+        if (dots[current]) dots[current].classList.add('active');
+      }
+
+      function next() { goTo(current + 1); }
+
+      function start() { timer = setInterval(next, slideDuration); }
+      function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+      // dots click
+      dots.forEach(d => { d.addEventListener('click', (e) => { stop(); goTo(parseInt(d.dataset.idx)); start(); }); });
+
+      // pause on hover (desktop)
+      sliderElem.addEventListener('mouseenter', stop);
+      sliderElem.addEventListener('mouseleave', start);
+
+      start();
+      return { goTo, start, stop };
+    }
+
+    // ---------- build event nodes ----------
+    const eventsContainer = document.getElementById('events');
+
+    function createEventNode(evt, idx) {
+      const wrap = document.createElement('div');
+      wrap.className = 'event';
+
+      const card = document.createElement('div'); card.className = 'card';
+      const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = `${evt.date} • ${evt.location || 'Unknown'}`;
+      const title = document.createElement('h3'); title.className = 'title'; title.textContent = evt.title;
+      const cap = document.createElement('div'); cap.className = 'caption'; cap.textContent = evt.caption || '';
+      card.appendChild(meta); card.appendChild(title); card.appendChild(cap);
+
+      // group avatars
+      if (evt.group && evt.group.length) {
+        const gs = document.createElement('div'); gs.className = 'group-strip';
+        evt.group.slice(0, 5).forEach(u => { const a = document.createElement('div'); a.className = 'group-avatar'; a.style.backgroundImage = `url(${u})`; gs.appendChild(a); });
+        card.appendChild(gs);
+      }
+
+      const photo = document.createElement('div'); photo.className = 'photo';
+      const slider = document.createElement('div'); slider.className = 'slider';
+
+      // support photos array or legacy photo
+      const photoList = evt.photos || (evt.photo ? [evt.photo] : []);
+      if (photoList.length === 0) {
+        const s = document.createElement('div'); s.className = 'slide active';
+        s.style.background = '#14202b';
+        slider.appendChild(s);
+      } else {
+        photoList.forEach((p, i) => {
+          const s = document.createElement('div'); s.className = 'slide';
+          if (i === 0) s.classList.add('active');
+          s.dataset.src = p;
+          slider.appendChild(s);
+        });
+
+        // dots
+        if (photoList.length > 1) {
+          const dots = document.createElement('div'); dots.className = 'dots';
+          photoList.forEach((_, i) => { const d = document.createElement('div'); d.className = 'dot'; if (i === 0) d.classList.add('active'); d.dataset.idx = i; dots.appendChild(d); });
+          slider.appendChild(dots);
+        }
+      }
+
+      const blocker = document.createElement('div'); blocker.className = 'blocker';
+      photo.appendChild(slider); photo.appendChild(blocker);
+      const captionBox = document.createElement('div'); captionBox.className = 'captionBox'; captionBox.textContent = evt.title; photo.appendChild(captionBox);
+
+      // viewer overlay on click
+      photo.addEventListener('click', (e) => { openViewer(evt); });
+
+      wrap.appendChild(card);
+      wrap.appendChild(photo);
+
+      // after adding to DOM, render canvases inside slides (to the right size)
+      setTimeout(async () => {
+        const slides = slider.querySelectorAll('.slide');
+        for (let si = 0; si < slides.length; si++) {
+          const s = slides[si];
+          const src = s.dataset.src;
+          if (src) {
+            // render canvas sized to slide container
+            await renderCanvasIntoSlide(s, src, watermarkText, watermarkStyle);
+          }
+        }
+        // init slider if many slides
+        if (photoList.length > 1) {
+          initSlider(slider, photoList);
+        }
+      }, 30); // small timeout to allow layout
+
+      return wrap;
+    }
+
+    // ---------- render all events ----------
+    function render() {
+      eventsContainer.innerHTML = '';
+      events.forEach((e, i) => {
+        const node = createEventNode(e, i);
+        eventsContainer.appendChild(node);
+      });
+      placeNodes();
+      // reveal animation sequentially
+      document.querySelectorAll('.event').forEach((el, idx) => {
+        setTimeout(() => { el.classList.add('visible'); el.querySelector('.card').classList.add('visible'); }, idx * 120);
+      });
+    }
+
+    function placeNodes() {
+      document.querySelectorAll('.node').forEach(n => n.remove());
+      const items = document.querySelectorAll('.event');
+      items.forEach((it, idx) => {
+        const n = document.createElement('div'); n.className = 'node';
+        const top = it.offsetTop + it.offsetHeight / 2 - 11;
+        n.style.top = `${top}px`;
+        document.getElementById('timeline').appendChild(n);
+      });
+    }
+
+    // ---------- viewer overlay (full-screen watermarked images slideshow) ----------
+    function openViewer(evt) {
+      const photos = evt.photos || (evt.photo ? [evt.photo] : []);
+      const overlay = document.createElement('div');
+      overlay.style = 'position:fixed;inset:0;background:rgba(6,10,18,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:20px;gap:12px;';
+
+      const closeHint = document.createElement('div');
+      closeHint.style = 'position:absolute;right:14px;top:10px;color:#d0eaff;font-size:13px;z-index:10000;opacity:0.9';
+      closeHint.textContent = 'Tap anywhere to close';
+
+      const box = document.createElement('div'); box.style = 'max-width:1100px;width:100%;border-radius:12px;overflow:hidden;position:relative;background:#071021;display:flex;flex-direction:column;align-items:stretch;';
+
+      const viewerSlider = document.createElement('div'); viewerSlider.style = 'height:70vh;position:relative;display:block;overflow:hidden;';
+
+      // create slides with canvases
+      photos.forEach((p, i) => {
+        const s = document.createElement('div');
+        s.style = `position:absolute;inset:0;transition:opacity .5s;opacity:${i === 0 ? 1 : 0};display:flex;align-items:center;justify-content:center;`;
+        const canvas = document.createElement('canvas');
+        // size canvas for viewer (70vh) and keep DPR
+        const targetH = Math.round(window.innerHeight * 0.7);
+        const targetW = Math.min(1100, Math.round(targetH * (16/9)));
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = targetW * dpr;
+        canvas.height = targetH * dpr;
+        canvas.style.width = targetW + 'px';
+        canvas.style.height = targetH + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // render image into canvas
+        renderImageToCanvas(canvas, p, watermarkText, watermarkStyle).then(() => {
+          canvas.oncontextmenu = (e) => e.preventDefault();
+          canvas.draggable = false;
+        }).catch(() => {});
+
+        s.appendChild(canvas);
+        viewerSlider.appendChild(s);
+      });
+
+      const info = document.createElement('div');
+      info.style = 'padding:12px;color:#dff0ff;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));';
+      info.innerHTML = `<strong style="font-size:18px">${evt.title}</strong><div style="margin-top:6px;color:#bcd3ec">${evt.date} • ${evt.location || ''}</div><p style="margin:12px 0 0 0;color:#cfeafe">${evt.caption || ''}</p>`;
+
+      box.appendChild(viewerSlider);
+      box.appendChild(info);
+      overlay.appendChild(closeHint);
+      overlay.appendChild(box);
+
+      // simple viewer controls: click overlay to remove
+      overlay.addEventListener('click', () => overlay.remove());
+      overlay.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+      document.body.appendChild(overlay);
+    }
+
+    // ---------- block common download actions ----------
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'u')) e.preventDefault();
+      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) e.preventDefault();
+    });
+    document.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+
+    // ---------- background cycling ----------
+    const bgs = ['bg-1', 'bg-2', 'bg-3', 'bg-4'];
+    let bgIdx = 0;
+    function cycleBg() {
+      document.body.classList.remove(...bgs);
+      document.body.classList.add(bgs[bgIdx]);
+      bgIdx = (bgIdx + 1) % bgs.length;
+    }
+    setInterval(cycleBg, 5000);
+    cycleBg();
+
+    // ---------- kick off ----------
+    window.addEventListener('load', () => { render(); window.addEventListener('resize', () => { placeNodes(); }); });
+
+  </script>
+</body>
+</html>
