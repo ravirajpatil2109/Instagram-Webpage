@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Journey Timeline</title>
+
+<style>
+:root{
+  --paper:#faf7f2;
+  --ink:#2b2b2b;
+  --muted:#6b6b6b;
+  --border:#d6cfc4;
+  --accent:#8b5e3c;
+  font-family: "Georgia", "Times New Roman", serif;
+}
+
+html,body{
+  margin:0;
+  background:rgb(250,247,242);
+  color:var(--ink);
+}
+
+/* PAGE */
+.wrap{
+  max-width:900px;
+  margin:auto;
+  padding:40px 16px 80px;
+}
+
+/* HEADER */
+header{
+  text-align:center;
+  margin-bottom:50px;
+}
+header h1{
+  font-size:32px;
+  margin:0;
+  letter-spacing:1px;
+}
+header p{
+  margin-top:6px;
+  color:var(--muted);
+  font-style:italic;
+}
+
+/* TIMELINE */
+.timeline{
+  position:relative;
+  padding:20px 0;
+}
+.timeline::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:0;
+  bottom:0;
+  width:2px;
+  background:var(--border);
+  transform:translateX(-50%);
+}
+
+/* EVENT */
+.event{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:30px;
+  margin-bottom:80px;
+  align-items:center;
+  position:relative;
+}
+.event:nth-child(even){
+  direction:rtl;
+}
+.event:nth-child(even) > *{
+  direction:ltr;
+}
+
+/* DOT */
+.node{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  background:var(--paper);
+  border:3px solid var(--accent);
+}
+
+/* TEXT CARD */
+.card{
+  padding:18px 22px;
+}
+.meta{
+  font-size:13px;
+  color:var(--muted);
+  margin-bottom:6px;
+}
+.title{
+  font-size:20px;
+  margin:0 0 8px;
+}
+.caption{
+  font-size:15px;
+  line-height:1.7;
+}
+
+/* PHOTO FRAME */
+.photo{
+  background:white;
+  padding:10px 10px 30px;
+  border:1px solid var(--border);
+  box-shadow:0 6px 18px rgba(0,0,0,.12);
+}
+.slider{
+  position:relative;
+  height:260px;
+  background:#f3eee6;
+}
+.slide{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  transition:opacity .8s ease;
+}
+.slide.active{opacity:1}
+
+/* CANVAS */
+.slide canvas{
+  display:block;
+  margin:auto;
+}
+
+/* DOTS */
+.dots{
+  position:absolute;
+  bottom:-22px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:6px;
+}
+.dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#c7c0b5;
+}
+.dot.active{
+  background:var(--accent);
+}
+
+/* MOBILE */
+@media(max-width:800px){
+  .timeline::before{left:8px}
+  .event{
+    grid-template-columns:1fr;
+    padding-left:30px;
+  }
+  .event:nth-child(even){
+    direction:ltr;
+  }
+  .node{
+    left:8px;
+  }
+}
+
+canvas{pointer-events:none;user-select:none}
+</style>
+</head>
+
+<body oncontextmenu="return false;" ondragstart="return false;">
+
+<div class="wrap">
+
+<header>
+  <h1>My Journey</h1>
+  <p>Moments captured through time</p>
+</header>
+
+<div class="timeline">
+  <div id="events"></div>
+</div>
+
+</div>
+
+<script>
+/* ================= RGB BACKGROUND ANIMATION ================= */
+let r = 250, g = 247, b = 242;
+let dr = -0.15, dg = 0.12, db = -0.1;
+
+function animateBackground(){
+  r += dr;
+  g += dg;
+  b += db;
+
+  if(r <= 220 || r >= 255) dr *= -1;
+  if(g <= 220 || g >= 255) dg *= -1;
+  if(b <= 220 || b >= 255) db *= -1;
+
+  const color = `rgb(${r|0},${g|0},${b|0})`;
+  document.body.style.backgroundColor = color;
+  document.documentElement.style.backgroundColor = color;
+
+  requestAnimationFrame(animateBackground);
+}
+animateBackground();
+/* ============================================================ */
+
+const slideDuration = 3000;
+const watermarkText = "©raviraj_patil_2109";
+
+const events = [
+{
+    date:"26 August 2023",
+    title:"Juniors Induction Program",
+    caption:"A welcoming and orientation program designed for new junior members, introducing them to the organization’s culture, activities, and key resources.",
+    location:"ASM IBMR Collage",
+    photos:["./images/25aug23.jpg","./images/25aug23-1.jpg"]
+  },
+{
+    date:"21 May 2023",
+    title:"Sinhgad Fort",
+    caption:"An adventurous trip to Sinhgad Fort and Khadakwasla Dam, exploring the terrain, enjoying the views, and embracing the outdoor experience.",
+    location:"Sinhgad & Khadakwasla Dam",
+    photos:["./images/21may23.jpg","./images/21may23-1.jpg","./images/21may23-2.jpg","./images/21may23-3.jpg","./images/21may23-4.jpg","./images/21may23-5.jpg","./images/21may23-6.jpg","./images/21may23-7.jpg"]
+  },
+{
+    date:"12 March 2023",
+    title:"Parvati Hills & Karla Caves Visit",
+    caption:"A refreshing visit to Parvati Hills and Karla Caves, exploring the surroundings and enjoying the experience.",
+    location:"Parvati Hills & Karla Caves",
+    photos:["./images/12mar23.jpg","./images/12mar23-1.jpg"]
+  },
+{
+    date:"19 February 2023",
+    title:"Shiv Jayanti Celebration",
+    caption:"Celebrated Shiv Jayanti at college, taking part in the event and honoring the occasion together.",
+    location:"College Campus",
+    photos:["./images/19feb23.jpg","./images/19feb23-1.jpg"]
+  },
+{
+    date:"11 February 2023",
+    title:"Time Together",
+    caption:"A fun and relaxed time spent with Tushar and Priti, sharing moments and good vibes",
+    location:"Fun Time",
+    photos:["./images/11feb23.jpg","./images/11feb23-1.jpg","./images/11feb23-2.jpg"]
+  },
+{
+    date:"9 February 2023",
+    title:"Octant Pizza Visit",
+    caption:"A casual visit to Octant Pizza, enjoying food and spending time with Tushar.",
+    location:"Octant Pizza",
+    photos:["./images/9feb23.jpg"]
+  },
+{
+    date:"30 January 2023",
+    title:"McDonald’s Outing",
+    caption:"An outing at McDonald’s, enjoying good food and spending time together.",
+    location:"McDonald’s",
+    photos:["./images/30jan23.jpg","./images/30jan23-1.jpg"]
+  },
+{
+    date:"29 January 2023",
+    title:"Tushar’s Birthday",
+    caption:"Celebrated Tushar’s birthday with friends, creating joyful memories together.",
+    location:"Birthday Celebration",
+    photos:["./images/29jan23-1.jpg","./images/29jan23.jpg"]
+  },
+  {
+    date:"19 January 2023",
+    title:"International Conference on Management & IT",
+    caption:"Attended INCON, an international conference focused on ongoing research in management and information technology.",
+    location:"INCON Conference",
+    photos:["./images/19jan23.jpg","./images/19jan23-1.jpg","./images/19jan23-2.jpg"]
+  },
+  {
+    date:"31 December 2022",
+    title:"Alandi Darshan",
+    caption:"A peaceful visit to Alandi, spending meaningful time and ending the year on a calm and memorable note with Devidas and Pratik.",
+    location:"Alandi",
+    photos:["./images/31dec22.jpg"]
+  },
+  {
+    date:"25 December 2022",
+    title:"Christmas at Phoenix Mall",
+    caption:"A fun Christmas outing at Phoenix Mall, spending time, exploring decorations and creating memories with Viany and Tushar.",
+    location:"Phoenix Mall",
+    photos:["./images/25dec22.jpg","./images/25dec22-1.jpg"]
+  },
+  {
+    date:"17 December 2022",
+    title:"Lohgad & Visapur Trek",
+    caption:"A memorable trek to Lohgad and Visapur, exploring historic forts and scenic views together with Priti and Shreya.",
+    location:"Lohgad & Visapur",
+    photos:["./images/17dec22.jpg","./images/17dec22-1.jpg","./images/17dec22-2.jpg","./images/17dec22-3.jpg","./images/17dec22-4.jpg"]
+  },
+  {
+    date:"03 December 2022",
+    title:"Documentation Team",
+    caption:"One of the most dedicated and creative documentation teams, capturing moments and preserving memories throughout our college journey.",
+    location:"ASM IBMR College Campus, Chinchwad",
+    photos:["./images/3dec22.jpg"]
+  },
+  {
+    date:"09 March 2023",
+    title:"Kashid Beach",
+    caption:"A peaceful day by the sea, where the sound of waves and shared laughter turned into memories worth keeping forever.",
+    location:"Kashid, Maharashtra",
+    photos:[
+      "./images/IMG20240309114358.jpg",
+      "./images/IMG20240309120327.jpg",
+      "./images/IMG20240309182623.jpg",
+      "./images/Snapchat-1420790645.jpg",
+      "./images/IMG20240309122019.jpg"
+    ]
+  }
+];
+
+/* DRAW IMAGE WITHOUT CROP */
+function drawToCanvas(canvas, url){
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+
+  img.onload = () => {
+    const cw = canvas.width;
+    const ch = canvas.height;
+
+    ctx.clearRect(0,0,cw,ch);
+
+    const scale = Math.min(cw / img.width, ch / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+
+    const x = (cw - w) / 2;
+    const y = (ch - h) / 2;
+
+    ctx.drawImage(img, x, y, w, h);
+
+    ctx.font = "16px Georgia";
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    ctx.fillText(
+      watermarkText,
+      cw - ctx.measureText(watermarkText).width - 10,
+      ch - 10
+    );
+  };
+
+  img.src = url;
+}
+
+function initSlider(slider){
+  const slides = slider.querySelectorAll(".slide");
+  const dots = slider.querySelectorAll(".dot");
+  let i = 0;
+
+  setInterval(()=>{
+    slides[i].classList.remove("active");
+    dots[i].classList.remove("active");
+    i = (i + 1) % slides.length;
+    slides[i].classList.add("active");
+    dots[i].classList.add("active");
+  }, slideDuration);
+}
+
+function build(){
+  const box = document.getElementById("events");
+
+  events.forEach(e=>{
+    const ev = document.createElement("div");
+    ev.className = "event";
+    ev.innerHTML = `
+      <div class="node"></div>
+      <div class="card">
+        <div class="meta">${e.date} • ${e.location}</div>
+        <h3 class="title">${e.title}</h3>
+        <div class="caption">${e.caption}</div>
+      </div>
+      <div class="photo">
+        <div class="slider"></div>
+      </div>
+    `;
+
+    const slider = ev.querySelector(".slider");
+    box.appendChild(ev);
+
+    e.photos.forEach((p,i)=>{
+      const slide = document.createElement("div");
+      slide.className = "slide" + (i===0 ? " active" : "");
+
+      const canvas = document.createElement("canvas");
+      const rect = slider.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+
+      drawToCanvas(canvas, p);
+
+      slide.appendChild(canvas);
+      slider.appendChild(slide);
+    });
+
+    const dots = document.createElement("div");
+    dots.className = "dots";
+    e.photos.forEach((_,i)=>{
+      const d = document.createElement("div");
+      d.className = "dot" + (i===0 ? " active" : "");
+      dots.appendChild(d);
+    });
+    slider.appendChild(dots);
+
+    initSlider(slider);
+  });
+}
+
+build();
+</script>
+</body>
+</html>
